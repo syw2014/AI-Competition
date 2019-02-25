@@ -1,0 +1,14 @@
+uid	用户id
+user_city	用户所在城市
+item_id	作品id
+author_id	作者id
+item_city	作品城市
+channel	观看到该作品的来源
+finish	是否浏览完作品
+like	是否对作品点赞
+music_id	音乐id
+device	设备id
+create_time	track2创建时间，已脱敏，单位是秒，测试集中creat_time没有在训练集的范围内；track1是作品观看的起始时间
+video_duration	作品时长，单位秒
+
+
