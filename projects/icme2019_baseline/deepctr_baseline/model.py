@@ -10,10 +10,25 @@ def xDeepFM_MTL(feature_dim_dict, embedding_size=8, hidden_size=(256, 256), cin_
                 cin_split_half=True,
                 task_net_size=(128,), l2_reg_linear=0.00001, l2_reg_embedding=0.00001,
                 seed=1024, ):
+    """
+
+    :param feature_dim_dict: 特征词典，包括特征名和特征列表
+    :param embedding_size:
+    :param hidden_size:
+    :param cin_layer_size:
+    :param cin_split_half:
+    :param task_net_size: 网络层数
+    :param l2_reg_linear:
+    :param l2_reg_embedding:
+    :param seed:
+    :return:
+    """
+    # 判断sparse 和dense feature结构是否正确
     check_feature_config_dict(feature_dim_dict)
     if len(task_net_size) < 1:
         raise ValueError('task_net_size must be at least one layer')
 
+    # Todo, add text sequence embedding
     deep_emb_list, linear_logit, inputs_list = preprocess_input_embedding(
         feature_dim_dict, embedding_size, l2_reg_embedding, l2_reg_linear, 0.0001, seed)
 
