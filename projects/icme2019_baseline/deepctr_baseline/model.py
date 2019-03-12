@@ -1,9 +1,10 @@
 import tensorflow as tf
-from deepctr.input_embedding import preprocess_input_embedding
+from deepctr.input_embedding import preprocess_input_embedding, get_inputs_list
 from deepctr.layers.core import MLP, PredictionLayer
 from deepctr.layers.interaction import CIN
 from deepctr.layers.utils import concat_fun
 from deepctr.utils import check_feature_config_dict
+from collections import OrderedDict
 
 
 def xDeepFM_MTL(feature_dim_dict, embedding_size=8, hidden_size=(256, 256), cin_layer_size=(256, 256,),
@@ -34,6 +35,14 @@ def xDeepFM_MTL(feature_dim_dict, embedding_size=8, hidden_size=(256, 256), cin_
 
     # video_input = tf.keras.layers.Input((128,))
     # inputs_list.append(video_input)
+
+    # TODO, add other feature
+    if 'txt' in feature_dim_dict:
+        # txt_input = OrderedDict()
+        for i, feat in enumerate(feature_dim_dict["txt"]):
+            txt_input = tf.keras.layers.Input(
+                shape=(feat.dimension,), name='txt_' + str(i) + '-' + feat.name)
+            inputs_list.append(txt_input)
 
     fm_input = concat_fun(deep_emb_list, axis=1)
 
