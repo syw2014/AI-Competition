@@ -6,7 +6,7 @@ Repository to maintain competitions I had joined or focusing on, the direction o
 ## Table of Contents
 
 - [Knowledge Graph](#knowledge-graph)
-- [Nature Language Processing](#nature language processing)
+- [Nature Language Processing](#nature-language-processing)
 - [Recommendation](#recommendation)
 
 ## Knowledge Graph
