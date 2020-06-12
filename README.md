@@ -17,13 +17,13 @@ Knowledge graph  contain tasks in this area like ner, relation extraction, entit
 
 **Task**
 
-1. [**链想家计算科技大赛：COVID-19 知识图谱构建 赛道一**](https://www.biendata.xyz/competition/chaindream_knowledgegraph_19_task1/)
+1. [**COVID-19 NER**](https://github.com/syw2014/AI-Competition/tree/master/knowledge-graph/NER/COVID-19-Task1)
 
 ### Relation Extraction
 
 **Task**
 
-1. [**链想家计算科技大赛：COVID-19 知识图谱构建 赛道二**](https://www.biendata.xyz/competition/chaindream_nowledgegraph_19_task2/)
+1. [**COVID-19 RE**](https://github.com/syw2014/AI-Competition/tree/master/knowledge-graph/RE/COVID-19-Task2)
 
    
 
