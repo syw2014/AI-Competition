@@ -30,36 +30,38 @@ class Vocab(object):
         self.vocab = {} # word -> id
         self.reverse_vocab = None # id->word
         self.counter = Counter() # counter for word
+        self.labels = {'O':0}     # label->id
+        self.reverse_labels = {}   # id->label
+        self.seqs_label_prefix = ['B', 'I'] # use BIO as sequence label
 
         # load stop words
         if self.stopwords_file is not None:
-            self.stopwords = [line.strip().lstrip('#')for line in
-                          open(self.stopwords_file, 'r', encoding='utf-8').readlines()]
+            self.stopwords = [line.strip() for line in
+                          open(self.stopwords_file, 'r', encoding='utf-8').readlines()
+                              if not line.startswith('#')]
         else:
             self.stopwords = []
 
-    def create_count(self, filename, remove_stopwords=True):
+    def add_line(self, text, remove_stopwords=True):
         """
         Load input data file and
         :param filename: input text file name, here assign each line in file was a json like {"query":text,..}
                         we only process query
         :return:
         """
-        with open(filename, 'r', encoding='utf-8') as f:
-            for line in tqdm(f.readlines()):
-                jdata = json.loads(line.strip())
-                if "query" not in jdata:
-                    continue
-                text = jdata['query']
-                # tokenize
-                tokens = list(jieba.cut(text.lower()))
-                if remove_stopwords:
-                    tokens = [w for w in tokens if w not in self.stopwords]
-                # remove empty
-                if len(tokens) == 0:
-                    continue
-                self.counter.update(tokens)
-        print("Found {} tokens input file {}".format(len(self.counter), filename))
+        tokens = list(text.split(' '))
+        if remove_stopwords:
+            tokens = [w for w in tokens if w not in self.stopwords]
+        # remove empty
+        if len(tokens) != 0:
+            self.counter.update(tokens)
+
+    def add_label(self, label):
+        for pre in self.seqs_label_prefix:
+            if pre+'-'+label not in self.labels:
+                id = len(self.labels)
+                self.labels[pre+'-'+label] = id
+
 
     def create_vocab(self):
         """
@@ -70,9 +72,10 @@ class Vocab(object):
         # TODO, here can filter words with term frequency
         words = ['UNK'] + [w for (w, c) in words]
         self.vocab = dict(zip(words, range(len(words))))
-        # self.vocab['UNK'] = len(self.vocab)
         self.reverse_vocab = dict(zip(self.vocab.values(), self.vocab.keys()))
         print("Create {} words in vocabulary".format(len(self.vocab)))
+        self.reverse_labels = dict(zip(self.labels.values(), self.labels.keys()))
+        print("Create {} labels from given dataset".format(len(self.labels)))
 
     def save_vocab(self):
         """
@@ -85,7 +88,13 @@ class Vocab(object):
         else:
             raise Exception("No vocabulary generation or vocab_dir not exists")
 
-    def load_vocab(self):
+        if len(self.labels) != 0 and os.path.exists(self.vocab_dir):
+            with open(self.vocab_dir + 'labels.json', 'w', encoding='utf-8') as f:
+                json.dump(self.labels, f, indent=4, ensure_ascii=False)
+        else:
+            raise Exception("No labels generation or vocab_dir not exists")
+
+    def load_vocab_label(self):
         """
         Load vocabulary from vocab.json in self.vocab_dir
         :return:
@@ -94,6 +103,11 @@ class Vocab(object):
             self.vocab = json.load(f)
             self.reverse_vocab = dict(zip(self.vocab.values(), self.vocab.keys()))
             print("Load {} words from {}.".format(len(self.vocab), self.vocab_dir+'vocab.json'))
+
+        with open(self.vocab_dir+'labels.json', 'r', encoding='utf-8') as f:
+            self.labels = json.load(f)
+            self.reverse_labels = dict(zip(self.labels.values(), self.labels.keys()))
+            print("Load {} words from {}.".format(len(self.labels), self.vocab_dir+'labels.json'))
 
     def seq_to_ids(self, token_seq):
         """
@@ -113,7 +127,7 @@ class Vocab(object):
         """
         tokens = text
         if isSegment:
-            tokens = list(jieba.cut(text.lower()))
+            tokens = text.split(' ')
         if remove_stopwords:
             tokens = [w for w in tokens if w not in self.stopwords]
         token_ids = self.seq_to_ids(tokens)
@@ -123,12 +137,26 @@ class Vocab(object):
     def get_vocab_size(self):
         return len(self.vocab)
 
+    def label_to_id(self,label):
+        return self.labels[label]
+
+    def get_label(self, id):
+        return self.reverse_labels[id]
+
 
 if __name__ == '__main__':
-    data_dir = '../data/dataset/'
+    data_dir = '../../data/task_1/'
     stopwords_file = data_dir + 'stopwords.txt'
     vocab = Vocab(stopwords_file, vocab_dir=data_dir)
-    data = data_dir + 'text_for_vocab.txt'
-    vocab.create_count(data)
+    data = data_dir + 'task1_train_correct.json'
+    with open(data, 'r', encoding='utf-8') as f:
+        for line in tqdm(f.readlines()):
+            jdata = json.loads(line.strip())
+            text = jdata['text']
+            arr = text.split('\t')
+            vocab.add_line(arr[0])
+            vocab.add_line(arr[1])
+            for e in jdata['entities']:
+                vocab.add_label(e['type'])
     vocab.create_vocab()
     vocab.save_vocab()
