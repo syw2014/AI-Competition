@@ -154,8 +154,8 @@ if __name__ == '__main__':
             jdata = json.loads(line.strip())
             text = jdata['text']
             arr = text.split('\t')
-            vocab.add_line(arr[0])
-            vocab.add_line(arr[1])
+            vocab.add_line(arr[0], False)
+            vocab.add_line(arr[1], False)
             for e in jdata['entities']:
                 vocab.add_label(e['type'])
     vocab.create_vocab()

@@ -17,7 +17,17 @@ import math
 import numpy as np
 import tensorflow as tf
 import pandas as pd
+import re
 
+def doc_to_sentences(doc):
+    """Cut doc into sentences with !.;?"""
+    pat = u'[!.;?]'
+    sents = re.split(pat,doc)
+    seg_words = re.findall(pat, doc)
+    seg_words.insert(len(doc)-1, "")
+    # keep seg words in each sentence
+    results = [s+w for s,w in zip(sents, seg_words)]
+    return results
 
 def train_test_split(samples, n_samples, train_proportion=0.7,
                      dev_proportion=0.1, shuffle=True):
@@ -54,30 +64,8 @@ def data_split(filename, output_dir):
     :return:
     """
     dataset = {}
-    with open(filename, 'r', encoding='utf-8') as f:
-        for line in tqdm(f.readlines()):
-            jdata = json.loads(line.strip())
-            if jdata['bot'] == '':
-                continue
-            if jdata['bot'] in dataset:
-                dataset[jdata['bot']].append(jdata['query'])
-            else:
-                dataset[jdata['bot']] = [jdata['query']]
-    print("Load {} samples completed".format(len(dataset)))
-
-    # split train/dev/test
-    with open(output_dir + 'train.txt', 'w', encoding='utf-8') as f1, \
-            open(output_dir + 'dev.txt', 'w', encoding='utf-8') as f2, \
-            open(output_dir + 'test.txt', 'w', encoding='utf-8') as f3:
-        for label, texts in dataset.items():
-            tr, de, te = train_test_split(texts, len(texts))
-            print("Label: {} train/dev/test={}/{}/{}".format(label, len(tr), len(de), len(te)))
-            for e in tr:
-                f1.write(label + '\t' + e + '\n')
-            for e in de:
-                f2.write(label + '\t' + e + '\n')
-            for e in te:
-                f3.write(label + '\t' + e + '\n')
+    # Here we cut text into sentences, mean while convert entity to BIO format
+    pass
 
 
 def padding(token_ids, max_seq_len, padding_id, seq_front=False):
