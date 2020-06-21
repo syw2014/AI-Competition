@@ -18,16 +18,22 @@ import numpy as np
 import tensorflow as tf
 import pandas as pd
 import re
+import spacy
+from spacy.gold import biluo_tags_from_offsets
+
+spacy_model = spacy.load('en_core_web_sm')
+
 
 def doc_to_sentences(doc):
     """Cut doc into sentences with !.;?"""
     pat = u'[!.;?]'
-    sents = re.split(pat,doc)
+    sents = re.split(pat, doc)
     seg_words = re.findall(pat, doc)
-    seg_words.insert(len(doc)-1, "")
+    seg_words.insert(len(doc) - 1, "")
     # keep seg words in each sentence
-    results = [s+w for s,w in zip(sents, seg_words)]
+    results = [s + w for s, w in zip(sents, seg_words)]
     return results
+
 
 def train_test_split(samples, n_samples, train_proportion=0.7,
                      dev_proportion=0.1, shuffle=True):
@@ -56,6 +62,53 @@ def train_test_split(samples, n_samples, train_proportion=0.7,
     return train, dev, test
 
 
+def text_to_bio(tags, tokens):
+    """Convert tokens and tags sequence to bio format. From BILUO(begin,in,last,unit,out) to BIO(begin,in,out)"""
+    sentence_delimiter = ['?', '\t', '.', '!']
+    start_idx = 0
+    sents_tags_seq = []
+    for idx, e in enumerate(tokens):
+        if e in sentence_delimiter:
+            t_tags = tags[start_idx: idx + 1]
+            new_tags = []
+            for x in t_tags:
+                if x.startswith('L'):
+                    x = 'I-' + x.split('-')[-1]
+                elif x.startswith('U'):
+                    x = 'B-' + x.split('-')[-1]
+                new_tags.append(x)
+            t_sent = tokens[start_idx:idx + 1]
+            sents_tags_seq.append([t_sent, new_tags])
+            start_idx = idx + 1
+    return sents_tags_seq
+
+
+def clean_entity_types(entities):
+    starts = {}
+    ends = {}
+    for e in entities:
+        ent_length = e['end'] - e['start']
+        # check from entity start index
+        if e['start'] not in starts:
+            starts[e['start']] = e['entity']
+        else:
+            if len(starts[e['start']]) < ent_length:
+                starts[e['start']] = e['entity']
+
+        # check from entity end index
+        if e['end'] not in ends:
+            ends[e['end']] = e['entity']
+        else:
+            if len(ends[e['end']]) < ent_length:
+                ends[e['end']] = e['entity']
+    temp = list(set(starts.values()).intersection(set(ends.values())))
+    res = []
+    for x in entities:
+        if x['entity'] in temp:
+            res.append((x['start'], x['end'], x['type']))
+    return res
+
+
 def data_split(filename, output_dir):
     """
     Split data into train/dev/test,
@@ -63,9 +116,56 @@ def data_split(filename, output_dir):
     :param output_dir: output directory
     :return:
     """
-    dataset = {}
+    dataset = []
     # Here we cut text into sentences, mean while convert entity to BIO format
-    pass
+    with open(filename, 'r', encoding='utf-8') as f, open('error.txt', 'w', encoding='utf-8') as f2:
+        for line in tqdm(f.readlines()):
+            jdata = json.loads(line.strip())
+            doc = spacy_model(jdata['text'])
+            tokens = [w.text for w in doc]
+            entities = clean_entity_types(jdata['entities'])
+            try:
+                tags = biluo_tags_from_offsets(doc, entities)
+            except ValueError:
+                f2.write(line)
+            data = text_to_bio(tags, tokens)
+            dataset.extend(data)
+
+    # split data
+    train, dev, test = train_test_split(dataset, len(dataset))
+    seq_len = {}
+    with open(output_dir + 'train.txt', 'w', encoding='utf-8') as f:
+        for x in train:
+            tokens_str = ' '.join(x[0])
+            tag_str = ' '.join(x[1])
+            f.write(tokens_str + '==' + tag_str + '\n')
+            if len(x[1]) not in seq_len:
+                seq_len[len(x[1])] = 1
+            else:
+                seq_len[len(x[1])] += 1
+
+    with open(output_dir + 'dev.txt', 'w', encoding='utf-8') as f:
+        for x in test:
+            tokens_str = ' '.join(x[0])
+            tag_str = ' '.join(x[1])
+            f.write(tokens_str + '\t' + tag_str + '\n')
+            if len(x[1]) not in seq_len:
+                seq_len[len(x[1])] = 1
+            else:
+                seq_len[len(x[1])] += 1
+
+    with open(output_dir + 'test.txt', 'w', encoding='utf-8') as f:
+        for x in dev:
+            tokens_str = ' '.join(x[0])
+            tag_str = ' '.join(x[1])
+            f.write(tokens_str + '\t' + tag_str + '\n')
+            if len(x[1]) not in seq_len:
+                seq_len[len(x[1])] = 1
+            else:
+                seq_len[len(x[1])] += 1
+    with open(output_dir+'seq_len.txt', 'w', encoding='utf-8') as f:
+        for k,v in seq_len.items():
+            f.write(str(k) + '\t' + str(v) + '\n')
 
 
 def padding(token_ids, max_seq_len, padding_id, seq_front=False):
@@ -136,15 +236,15 @@ def create_single_input(text, vocab, max_seq_len):
     Convert an input text to model input(padded int id sequence)
     :param text: input text
     :param vocab: Vocab object
-    :param max_seq_len: the maximum sequence lenght
+    :param max_seq_len: the maximum sequence length
     :return: padded id(int32) list
     """
     token_ids = vocab.doc_to_ids(text)
-    padded_ids = padding(token_ids, max_seq_len, seq_front=False)
+    padded_ids = padding(token_ids, max_seq_len, "", seq_front=False)
     return padded_ids
 
 
 if __name__ == '__main__':
-    filename = "../data/dataset/dialog_all.txt"
-    data_dir = "../data/dataset/bot_cli/"
-    # data_split(filename, data_dir)
+    data_dir = '../../data/task_1/'
+    filename = data_dir + 'task1_train_correct.json'
+    data_split(filename, data_dir)
