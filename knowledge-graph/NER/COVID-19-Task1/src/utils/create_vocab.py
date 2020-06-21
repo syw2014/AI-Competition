@@ -14,7 +14,11 @@ try:
     from opencc import OpenCC
 except ImportError:
     print("Should run `pip install opencc-python-reimplemented` to install opencc package")
+import spacy
 
+def is_digit(word):
+    word = word.replace('.', '').replace('-', '').replace('%', '')
+    return word.isdigit()
 
 class Vocab(object):
     def __init__(self, stopwords_file=None, vocab_size=None, vocab_dir=None):
@@ -33,6 +37,7 @@ class Vocab(object):
         self.labels = {'O':0}     # label->id
         self.reverse_labels = {}   # id->label
         self.seqs_label_prefix = ['B', 'I'] # use BIO as sequence label
+        self.spacy_model = spacy.load('en_core_web_sm')
 
         # load stop words
         if self.stopwords_file is not None:
@@ -49,9 +54,14 @@ class Vocab(object):
                         we only process query
         :return:
         """
-        tokens = list(text.split(' '))
+        # TODO, here we spacy not jieba as spacy supply more tools for english processing
+        # tokens = list(jieba.cut(text))
+        doc = self.spacy_model(text)
+        tokens = [w.text for w in doc]
         if remove_stopwords:
             tokens = [w for w in tokens if w not in self.stopwords]
+        # # filter all digit
+        tokens = [w for w in tokens if not is_digit(w)]
         # remove empty
         if len(tokens) != 0:
             self.counter.update(tokens)
@@ -62,7 +72,6 @@ class Vocab(object):
                 id = len(self.labels)
                 self.labels[pre+'-'+label] = id
 
-
     def create_vocab(self):
         """
         Create vocabulary.
@@ -70,7 +79,8 @@ class Vocab(object):
         """
         words = self.counter.most_common(self.vocab_size)
         # TODO, here can filter words with term frequency
-        words = ['UNK'] + [w for (w, c) in words]
+        # add unknown and number char
+        words = ['UNK'] + [w for (w, c) in words] + ['NUM']
         self.vocab = dict(zip(words, range(len(words))))
         self.reverse_vocab = dict(zip(self.vocab.values(), self.vocab.keys()))
         print("Create {} words in vocabulary".format(len(self.vocab)))
@@ -119,7 +129,7 @@ class Vocab(object):
         token_ids = [self.vocab[w] for w in token_seq if w in self.vocab]
         return token_ids
 
-    def text_to_ids(self, text, isSegment=True, remove_stopwords=True):
+    def text_to_ids(self, text, isSegment=True, remove_stopwords=False):
         """
         Convert text to int32 id list
         :param text: input text.
@@ -127,7 +137,11 @@ class Vocab(object):
         """
         tokens = text
         if isSegment:
-            tokens = text.split(' ')
+            # tokens = list(jieba.cut(text))
+            doc = self.spacy_model(text)
+            tokens = [w.text for w in doc]
+        # filter all digit
+        tokens = [w for w in tokens if not is_digit(w)]
         if remove_stopwords:
             tokens = [w for w in tokens if w not in self.stopwords]
         token_ids = self.seq_to_ids(tokens)
