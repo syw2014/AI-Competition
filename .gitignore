@@ -4,3 +4,4 @@ knowledge-graph/NER/COVID-19-Task1/data/*
 
 knowledge-graph/RE/COVID-19-Task2/data/*
 !knowledge-graph/RE/COVID-19-Task2/data/README.md
+knowledge-graph/NER/COVID-19-Task1/src/process.py
