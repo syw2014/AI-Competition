@@ -135,11 +135,13 @@ class Vocab(object):
         :param text: input text.
         :return: int32 id list
         """
-        tokens = text
+
         if isSegment:
             # tokens = list(jieba.cut(text))
             doc = self.spacy_model(text)
             tokens = [w.text for w in doc]
+        else:
+            tokens = text.split(' ')
         # filter all digit
         tokens = [w for w in tokens if not is_digit(w)]
         if remove_stopwords:
@@ -156,6 +158,10 @@ class Vocab(object):
 
     def get_label(self, id):
         return self.reverse_labels[id]
+
+    def get_seq_labels(self, label_str):
+        seq_label_ids = [self.labels[x] for x in label_str.split(' ')]
+        return seq_label_ids
 
 
 if __name__ == '__main__':
