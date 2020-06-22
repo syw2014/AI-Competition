@@ -202,15 +202,15 @@ def create_dataset_with_tf(filename, vocab, epochs, batch_size, max_seq_len, mod
     :param mode: which mode will run in train/evaluate/test
     :return: dataset, num_samples
     """
-    label_dict = {'task': 0, 'qa': 1, 'chat': 2}
+    # label_dict = {'task': 0, 'qa': 1, 'chat': 2}
 
     def get_label_id(row):
         """Convert label text to label id."""
-        return label_dict[row.strip()]
+        return vocab.get_seq_labels(row)
 
-    header_names = ["label", "text"]
-    data = pd.read_csv(filename, sep='\t', header=None, names=header_names, encoding='utf-8')
-    data["label"] = data['label'].apply(get_label_id)
+    header_names = ["text", "cate"]
+    data = pd.read_csv(filename, sep='==', header=None, names=header_names, encoding='utf-8')
+    data["cate"] = data['cate'].apply(get_label_id)
     data = data.dropna()
     # sequence segment and convert token to ids
     data["split"] = data['text'].apply(lambda line: vocab.text_to_ids(line))
@@ -218,6 +218,10 @@ def create_dataset_with_tf(filename, vocab, epochs, batch_size, max_seq_len, mod
     # sequence padding
     padding_id = vocab.vocab['UNK']
     data['inputs'] = data['split'].apply(lambda tokens: padding(tokens, max_seq_len, padding_id, seq_front=False))
+
+    # label sequence padding
+    padding_id = vocab.labels['O']
+    data['labels'] = data['cate'].apply(lambda label_ids: padding(label_ids, max_seq_len, padding_id, seq_front=False))
 
     num_samples = data.shape[0]
     # tf.data.dataset
