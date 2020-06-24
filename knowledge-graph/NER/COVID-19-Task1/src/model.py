@@ -52,10 +52,12 @@ class BiLSTMCRF(tf.keras.Model):
 
         log_likelihood, transition_params = tfa.text.crf_log_likelihood(output,
                                                                         labels,
-                                                                        self.max_seq_len)
+                                                                        self.max_seq_len,
+                                                                        transition_params=self.transition_params)
 
         return output, log_likelihood
 
+    @tf.function
     def predict(self, inputs, training=None):
         embedding = self.embedding(inputs)
         dropout = self.dropout(embedding, training)
