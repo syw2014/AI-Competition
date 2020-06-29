@@ -83,10 +83,31 @@ def text_to_bio(tags, tokens):
     return sents_tags_seq
 
 
+def convert_to_bio(tags):
+    """
+    convert BILUO to BIO format
+    :param tags:
+    """
+    new_tags = []
+    for x in tags:
+        if x.startswith('L'):
+            x = 'I-' + x.split('-')[-1]
+        elif x.startswith('U'):
+            x = 'B-' + x.split('-')[-1]
+        elif x == '-':
+            x = 'O'
+        new_tags.append(x)
+    return new_tags
+
+
 def clean_entity_types(entities):
     starts = {}
     ends = {}
+    type_dict = {}
     for e in entities:
+        if e['entity'] not in type_dict:
+            type_dict[e['entity']] = e['type']
+
         ent_length = e['end'] - e['start']
         # check from entity start index
         if e['start'] not in starts:
@@ -101,11 +122,12 @@ def clean_entity_types(entities):
         else:
             if len(ends[e['end']]) < ent_length:
                 ends[e['end']] = e['entity']
-    temp = list(set(starts.values()).intersection(set(ends.values())))
     res = []
-    for x in entities:
-        if x['entity'] in temp:
-            res.append((x['start'], x['end'], x['type']))
+    for k, v in ends.items():
+        start = k - len(v)
+        t = type_dict[v]
+        res.append((start, k, t))
+
     return res
 
 
@@ -128,8 +150,8 @@ def data_split(filename, output_dir):
                 tags = biluo_tags_from_offsets(doc, entities)
             except ValueError:
                 f2.write(line)
-            data = text_to_bio(tags, tokens)
-            dataset.extend(data)
+            new_tags = convert_to_bio(tags)
+            dataset.append([tokens, new_tags])
 
     # split data
     train, dev, test = train_test_split(dataset, len(dataset))
@@ -148,7 +170,7 @@ def data_split(filename, output_dir):
         for x in test:
             tokens_str = ' '.join(x[0])
             tag_str = ' '.join(x[1])
-            f.write(tokens_str + '\t' + tag_str + '\n')
+            f.write(tokens_str + '==' + tag_str + '\n')
             if len(x[1]) not in seq_len:
                 seq_len[len(x[1])] = 1
             else:
@@ -210,22 +232,23 @@ def create_dataset_with_tf(filename, vocab, epochs, batch_size, max_seq_len, mod
 
     header_names = ["text", "cate"]
     data = pd.read_csv(filename, sep='==', header=None, names=header_names, encoding='utf-8')
+    data = data.dropna()
     data["cate"] = data['cate'].apply(get_label_id)
     data = data.dropna()
     # sequence segment and convert token to ids
     data["split"] = data['text'].apply(lambda line: vocab.text_to_ids(line))
-
+    data = data.dropna()
     # sequence padding
     padding_id = vocab.vocab['UNK']
     data['inputs'] = data['split'].apply(lambda tokens: padding(tokens, max_seq_len, padding_id, seq_front=False))
 
     # label sequence padding
-    padding_id = vocab.labels['O']
+    padding_id = vocab.label_to_id['O']
     data['labels'] = data['cate'].apply(lambda label_ids: padding(label_ids, max_seq_len, padding_id, seq_front=False))
 
     num_samples = data.shape[0]
     # tf.data.dataset
-    dataset = tf.data.Dataset.from_tensor_slices((data['inputs'], data['label']))
+    dataset = tf.data.Dataset.from_tensor_slices((data['inputs'], data['labels']))
 
     if mode == "train":
         dataset = dataset.repeat(epochs)
