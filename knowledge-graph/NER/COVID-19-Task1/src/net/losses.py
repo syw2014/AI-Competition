@@ -9,6 +9,7 @@
 
 import tensorflow as tf
 
+
 class MaskSparseCategoricalCrossentropy(object):
     def __init__(self, from_logits=False, use_mask=False):
         self.from_logits = from_logits
