@@ -25,8 +25,8 @@ class BiLSTMCRF(tf.keras.Model):
         self.max_seq_len = max_seq_len
 
         # define layers
-        if weights is None:
-            weights = np.array(weights)     # use pre-trained w2v
+        if weights is not None:
+            weights = np.array(weights)  # use pre-trained w2v
             self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim,
                                                        weights=[weights],
                                                        trainable=weights_trainable)
@@ -39,29 +39,33 @@ class BiLSTMCRF(tf.keras.Model):
         self.dense = tf.keras.layers.Dense(label_size)
 
         # define transition
-        self.transition_params = tf.Variable(tf.random_uniform(shape=(label_size, label_size)))
+        self.transition_params = tf.Variable(tf.random.uniform(shape=(label_size, label_size)))
 
         self.dropout = tf.keras.layers.Dropout(0.3)
 
     @tf.function
     def call(self, inputs, labels, training=None):
+        # calculate the real sequence length, 0 is the padding element
+        seq_len = tf.math.reduce_sum(tf.cast(tf.math.not_equal(inputs, 0), dtype=tf.int32), axis=-1)
         embedding = self.embedding(inputs)
         dropout = self.dropout(embedding, training)
         encoding = self.biLSTM(dropout)
         output = self.dense(encoding)
 
-        log_likelihood, transition_params = tfa.text.crf_log_likelihood(output,
-                                                                        labels,
-                                                                        self.max_seq_len,
-                                                                        transition_params=self.transition_params)
+        log_likelihood, self.transition_params = tfa.text.crf_log_likelihood(output,
+                                                                             labels,
+                                                                             seq_len,
+                                                                             transition_params=self.transition_params)
 
-        return output, log_likelihood
+        return output, seq_len, log_likelihood
 
     @tf.function
     def predict(self, inputs, training=None):
+        # calculate the real sequence length, 0 is the padding element
+        seq_len = tf.math.reduce_sum(tf.cast(tf.math.not_equal(inputs, 0), dtype=tf.int32), axis=-1)
         embedding = self.embedding(inputs)
         dropout = self.dropout(embedding, training)
         encoding = self.biLSTM(dropout)
         output = self.dense(encoding)
 
-        return output
+        return output, seq_len
