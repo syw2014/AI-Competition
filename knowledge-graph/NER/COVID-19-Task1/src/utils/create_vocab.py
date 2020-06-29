@@ -6,19 +6,23 @@
 # Date    : 2020/6/9 16:17
 # Software: PyCharm
 """Create vocabulary with text data for domain classification."""
-import json, os
+import json
+import os
 from collections import Counter
-import jieba
+
 from tqdm import tqdm
+
 try:
     from opencc import OpenCC
 except ImportError:
     print("Should run `pip install opencc-python-reimplemented` to install opencc package")
 import spacy
 
+
 def is_digit(word):
     word = word.replace('.', '').replace('-', '').replace('%', '')
     return word.isdigit()
+
 
 class Vocab(object):
     def __init__(self, stopwords_file=None, vocab_size=None, vocab_dir=None):
@@ -31,18 +35,18 @@ class Vocab(object):
         self.stopwords_file = stopwords_file
         self.vocab_size = vocab_size
         self.vocab_dir = vocab_dir
-        self.vocab = {} # word -> id
-        self.reverse_vocab = None # id->word
-        self.counter = Counter() # counter for word
-        self.labels = {'O':0}     # label->id
-        self.reverse_labels = {}   # id->label
-        self.seqs_label_prefix = ['B', 'I'] # use BIO as sequence label
+        self.vocab = {}  # word -> id
+        self.reverse_vocab = None  # id->word
+        self.counter = Counter()  # counter for word
+        self.label_to_id = {'O': 0}  # label->id
+        self.id_to_label = {}  # id->label
+        self.seqs_label_prefix = ['B', 'I']  # use BIO as sequence label
         self.spacy_model = spacy.load('en_core_web_sm')
 
         # load stop words
         if self.stopwords_file is not None:
             self.stopwords = [line.strip() for line in
-                          open(self.stopwords_file, 'r', encoding='utf-8').readlines()
+                              open(self.stopwords_file, 'r', encoding='utf-8').readlines()
                               if not line.startswith('#')]
         else:
             self.stopwords = []
@@ -50,8 +54,7 @@ class Vocab(object):
     def add_line(self, text, remove_stopwords=True):
         """
         Load input data file and
-        :param filename: input text file name, here assign each line in file was a json like {"query":text,..}
-                        we only process query
+        :param text: input text
         :return:
         """
         # TODO, here we spacy not jieba as spacy supply more tools for english processing
@@ -68,9 +71,9 @@ class Vocab(object):
 
     def add_label(self, label):
         for pre in self.seqs_label_prefix:
-            if pre+'-'+label not in self.labels:
-                id = len(self.labels)
-                self.labels[pre+'-'+label] = id
+            if pre + '-' + label not in self.label_to_id:
+                id = len(self.label_to_id)
+                self.label_to_id[pre + '-' + label] = id
 
     def create_vocab(self):
         """
@@ -84,8 +87,8 @@ class Vocab(object):
         self.vocab = dict(zip(words, range(len(words))))
         self.reverse_vocab = dict(zip(self.vocab.values(), self.vocab.keys()))
         print("Create {} words in vocabulary".format(len(self.vocab)))
-        self.reverse_labels = dict(zip(self.labels.values(), self.labels.keys()))
-        print("Create {} labels from given dataset".format(len(self.labels)))
+        self.id_to_label = dict(zip(self.label_to_id.values(), self.label_to_id.keys()))
+        print("Create {} labels from given dataset".format(len(self.label_to_id)))
 
     def save_vocab(self):
         """
@@ -98,9 +101,9 @@ class Vocab(object):
         else:
             raise Exception("No vocabulary generation or vocab_dir not exists")
 
-        if len(self.labels) != 0 and os.path.exists(self.vocab_dir):
+        if len(self.label_to_id) != 0 and os.path.exists(self.vocab_dir):
             with open(self.vocab_dir + 'labels.json', 'w', encoding='utf-8') as f:
-                json.dump(self.labels, f, indent=4, ensure_ascii=False)
+                json.dump(self.label_to_id, f, indent=4, ensure_ascii=False)
         else:
             raise Exception("No labels generation or vocab_dir not exists")
 
@@ -109,15 +112,15 @@ class Vocab(object):
         Load vocabulary from vocab.json in self.vocab_dir
         :return:
         """
-        with open(self.vocab_dir+'vocab.json', 'r', encoding='utf-8') as f:
+        with open(self.vocab_dir + 'vocab.json', 'r', encoding='utf-8') as f:
             self.vocab = json.load(f)
             self.reverse_vocab = dict(zip(self.vocab.values(), self.vocab.keys()))
-            print("Load {} words from {}.".format(len(self.vocab), self.vocab_dir+'vocab.json'))
+            print("Load {} words from {}.".format(len(self.vocab), self.vocab_dir + 'vocab.json'))
 
-        with open(self.vocab_dir+'labels.json', 'r', encoding='utf-8') as f:
-            self.labels = json.load(f)
-            self.reverse_labels = dict(zip(self.labels.values(), self.labels.keys()))
-            print("Load {} words from {}.".format(len(self.labels), self.vocab_dir+'labels.json'))
+        with open(self.vocab_dir + 'labels.json', 'r', encoding='utf-8') as f:
+            self.label_to_id = json.load(f)
+            self.id_to_label = dict(zip(self.label_to_id.values(), self.label_to_id.keys()))
+            print("Load {} words from {}.".format(len(self.label_to_id), self.vocab_dir + 'labels.json'))
 
     def seq_to_ids(self, token_seq):
         """
@@ -149,18 +152,22 @@ class Vocab(object):
         token_ids = self.seq_to_ids(tokens)
 
         return token_ids
-    
+
     def get_vocab_size(self):
         return len(self.vocab)
 
-    def label_to_id(self,label):
-        return self.labels[label]
+    def get_label_size(self):
+        return len(self.label_to_id)
+
+    def label_to_id(self, label):
+        return self.label_to_id[label]
 
     def get_label(self, id):
-        return self.reverse_labels[id]
+        return self.id_to_label[id]
 
     def get_seq_labels(self, label_str):
-        seq_label_ids = [self.labels[x] for x in label_str.split(' ')]
+        print(label_str)
+        seq_label_ids = [self.label_to_id[x] for x in label_str.split(' ')]
         return seq_label_ids
 
 
