@@ -43,7 +43,7 @@ def train_test_split(samples, n_samples, train_proportion=0.7,
     :param n_samples: total samples
     :param train_proportion: input train proportion, default 0.7
     :param dev_proportion: input train proportion, default 0.1
-    :param test_proportion: input train proportion, default 0.2
+    :param *test_proportion: input train proportion, default 0.2
     :return: n_train, n_dev, n_test
     """
     train_size = math.ceil(train_proportion * n_samples)
@@ -131,6 +131,23 @@ def clean_entity_types(entities):
     return res
 
 
+def tokens_segment(token_list, tag_list):
+    seg_chars = ["\t","!", ".", ";", "?"]
+    indexes = []
+    results = []
+    start = 0
+    for i, x in enumerate(token_list):
+        if x in seg_chars:
+            indexes.append(i)
+            # cut into sequence
+            tokens = token_list[start: i+1]
+            tags = tag_list[start: i+1]
+            start = i+1
+            results.append([tokens, tags])
+
+    return results
+
+
 def data_split(filename, output_dir):
     """
     Split data into train/dev/test,
@@ -150,6 +167,7 @@ def data_split(filename, output_dir):
                 tags = biluo_tags_from_offsets(doc, entities)
             except ValueError:
                 f2.write(line)
+                continue
             new_tags = convert_to_bio(tags)
             dataset.append([tokens, new_tags])
 
@@ -158,33 +176,42 @@ def data_split(filename, output_dir):
     seq_len = {}
     with open(output_dir + 'train.txt', 'w', encoding='utf-8') as f:
         for x in train:
-            tokens_str = ' '.join(x[0])
-            tag_str = ' '.join(x[1])
-            f.write(tokens_str + '==' + tag_str + '\n')
-            if len(x[1]) not in seq_len:
-                seq_len[len(x[1])] = 1
-            else:
-                seq_len[len(x[1])] += 1
+            # tokens_str = ' '.join(x[0])
+            # tag_str = ' '.join(x[1])
+            # cut long sequence to short
+            results = tokens_segment(x[0], x[1])
+            for e in results:
+                tokens_str = ' '.join(e[0])
+                tag_str = ' '.join(e[1])
+                f.write(tokens_str + '==' + tag_str + '\n')
+                if len(e[0]) not in seq_len:
+                    seq_len[len(e[0])] = 1
+                else:
+                    seq_len[len(e[0])] += 1
 
     with open(output_dir + 'dev.txt', 'w', encoding='utf-8') as f:
         for x in test:
-            tokens_str = ' '.join(x[0])
-            tag_str = ' '.join(x[1])
-            f.write(tokens_str + '==' + tag_str + '\n')
-            if len(x[1]) not in seq_len:
-                seq_len[len(x[1])] = 1
-            else:
-                seq_len[len(x[1])] += 1
+            results = tokens_segment(x[0], x[1])
+            for e in results:
+                tokens_str = ' '.join(e[0])
+                tag_str = ' '.join(e[1])
+                f.write(tokens_str + '==' + tag_str + '\n')
+                if len(e[0]) not in seq_len:
+                    seq_len[len(e[0])] = 1
+                else:
+                    seq_len[len(e[0])] += 1
 
     with open(output_dir + 'test.txt', 'w', encoding='utf-8') as f:
         for x in dev:
-            tokens_str = ' '.join(x[0])
-            tag_str = ' '.join(x[1])
-            f.write(tokens_str + '\t' + tag_str + '\n')
-            if len(x[1]) not in seq_len:
-                seq_len[len(x[1])] = 1
-            else:
-                seq_len[len(x[1])] += 1
+            results = tokens_segment(x[0], x[1])
+            for e in results:
+                tokens_str = ' '.join(e[0])
+                tag_str = ' '.join(e[1])
+                f.write(tokens_str + '==' + tag_str + '\n')
+                if len(e[0]) not in seq_len:
+                    seq_len[len(e[0])] = 1
+                else:
+                    seq_len[len(e[0])] += 1
     with open(output_dir+'seq_len.txt', 'w', encoding='utf-8') as f:
         for k,v in seq_len.items():
             f.write(str(k) + '\t' + str(v) + '\n')
@@ -272,6 +299,6 @@ def create_single_input(text, vocab, max_seq_len):
 
 
 if __name__ == '__main__':
-    data_dir = '../../data/task_1/'
-    filename = data_dir + 'task1_train_correct.json'
+    data_dir = '../../data/task1_public/'
+    filename = data_dir + 'new_train.json'
     data_split(filename, data_dir)
