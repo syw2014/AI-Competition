@@ -62,16 +62,24 @@ class BiLSTMCRF(tf.keras.Model):
 
         return output, seq_len, log_likelihood
 
-    def _viterbi_decode(self, feats):
+    def _viterbi_decode(self, feats, seq_len):
         """
         Viterbi decode to find the best path and score
         Args:
-            feats:
+            feats: input shape=[batch_size, seq_len, num_tags]
 
         Returns:
-
+            best_path: shape=[None, seq_len], each element was one prediction tag sequence
+            tags: shape=[-1], each element was the probability of the prediction tag sequence
         """
-        pass
+        best_path = []
+        path_probs = []
+        for length, feat in zip(seq_len, feats):
+            tag_seqs, tag_seq_score = tfa.text.viterbi_decode(feat[:length], self.transition_params)
+            best_path.append(tag_seqs)
+            path_probs.append(tag_seq_score)
+
+        return best_path, path_probs
 
     @tf.function
     def predict(self, inputs, training=None):
