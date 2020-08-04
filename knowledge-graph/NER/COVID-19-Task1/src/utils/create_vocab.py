@@ -172,10 +172,10 @@ class Vocab(object):
 
 
 if __name__ == '__main__':
-    data_dir = '../../data/task_1/'
+    data_dir = '../../data/task1_public/'
     stopwords_file = data_dir + 'stopwords.txt'
     vocab = Vocab(stopwords_file, vocab_dir=data_dir)
-    data = data_dir + 'task1_train_correct.json'
+    data = data_dir + 'new_train.json'
     with open(data, 'r', encoding='utf-8') as f:
         for line in tqdm(f.readlines()):
             jdata = json.loads(line.strip())
